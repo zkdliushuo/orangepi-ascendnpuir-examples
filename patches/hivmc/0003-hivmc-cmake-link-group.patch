@@ -1,0 +1,13 @@
+--- a/bishengir/tools/hivmc/CMakeLists.txt
++++ b/bishengir/tools/hivmc/CMakeLists.txt
+@@ -81,5 +81,9 @@
+ )
+ 
+ target_include_directories(hivmc PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+-target_link_libraries(hivmc PRIVATE ${LIBS})
++# The BiShengIR/Triton libraries form static-archive cycles (e.g.
++# BiShengIRHIVMTransforms <-> BiShengIRHIVMCLib, TritonAscendGPUToLLVM <->
++# TritonAscendGPUToDPX), so archive order alone cannot resolve all symbols.
++# Group them (and their transitive dependencies) with rescanning enabled.
++target_link_libraries(hivmc PRIVATE -Wl,--start-group ${LIBS} -Wl,--end-group)
+ mlir_check_all_link_libraries(hivmc)

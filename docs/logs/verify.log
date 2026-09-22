@@ -1,0 +1,30 @@
+captured host bitcode        -> out/a5-templates/host.bc
+captured device bitcode      -> out/a5-templates/regbaseM300.bc
+=== lower examples/vecadd/mlir/add_310b1.mlir (front end + back end) ===
+=== device IR: out/vecadd/capture/module-146-1.ll ===
+=== compile device code (ccec, dav-m300) ===
+=== build host runner ===
+built out/vecadd/kernel.o
+built out/vecadd/run_add
+=== run via ssh localhost ===
+Warning: Permanently added 'localhost' (ED25519) to the list of known hosts.
+AscendCheckSoCVersion=1 msg=
+RegisterAscendBinary(size=7480, type=0)
+RegisterAscendBinary ret=0 handle=0xaaab0de55280
+LaunchAscendKernel(key=0, blocks=1, argsSize=24)
+LaunchAscendKernel ret=0
+sync ret=0
+check: 0/1024 mismatched; c[0]=1 c[1]=2 c[1023]=1024
+VECADD PASS
+=== compile the CPU-side LLVM IR examples ===
+built out/vecadd/launch_add.o
+built out/vecadd/direct_aclrt_launch.o
+=== build the Ascend310B1 LLVM IR launcher (IR + C++ driver) ===
+built out/vecadd/llvm_launch
+=== run the LLVM IR launcher ===
+=== run via ssh localhost ===
+Warning: Permanently added 'localhost' (ED25519) to the list of known hosts.
+RegisterAscendBinary ret=0
+launch_and_wait_310b1 ret=0
+check: 0/1024 mismatched; c[0]=1 c[1]=2 c[1023]=1024
+VECADD PASS (LLVM IR launcher)

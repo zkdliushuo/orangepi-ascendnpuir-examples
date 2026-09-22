@@ -1,0 +1,15 @@
+--- a/bishengir/lib/Tools/hivmc/A5/HIVMCMainA5.cpp
++++ b/bishengir/lib/Tools/hivmc/A5/HIVMCMainA5.cpp
+@@ -83,6 +83,12 @@
+       (coreType == SubCoreTarget::AIC || coreType == SubCoreTarget::MIX_AIC)
+           ? "-cube"
+           : "-vec";
++  // Ascend310B (A5) is a register-base target and must be compiled for the
++  // m300 device arch, not for the mem-base dav-c220/dav-c310 arches.
++  if (hacc::utils::isAscend310B(config.getTargetBackend())) {
++    archBase = "dav-m300";
++    archSuffix = "";
++  }
+   std::string archArg = "--cce-aicore-arch=" + archBase + archSuffix;
+   arguments.push_back(archArg);
+   arguments.push_back("--cce-aicore-only");
