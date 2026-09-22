@@ -1,0 +1,18 @@
+--- a/bishengir/lib/Conversion/HFusionToHIVM/Matmul.cpp
++++ b/bishengir/lib/Conversion/HFusionToHIVM/Matmul.cpp
+@@ -612,6 +612,7 @@
+   llvm_unreachable("unsupported Dataformat");
+ }
+ 
++namespace {
+ template <>
+ struct MatmulOpToHIVMMatmulOp<hfusion::MatMulMxOp> :
+     public OpRewritePattern<hfusion::MatMulMxOp> {
+@@ -679,6 +680,7 @@
+     return success();
+   }
+ };
++} // namespace
+ 
+ void mlir::populateMatmulPatternsAndLegality(
+     RewritePatternSet &patterns, ConversionTarget &target,

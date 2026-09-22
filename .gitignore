@@ -1,0 +1,7 @@
+# build outputs (binaries, captured IR, logs created by the scripts)
+out/
+# local path overrides, see scripts/00_env.sh
+scripts/config.local.sh
+# object files copied around while experimenting
+*.o
+*.so

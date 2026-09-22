@@ -1,0 +1,413 @@
+--- a/bishengir/lib/Conversion/ArithToHIVMAVE/ArithToHIVMAVE.cpp
++++ b/bishengir/lib/Conversion/ArithToHIVMAVE/ArithToHIVMAVE.cpp
+@@ -702,46 +702,48 @@
+ ///  %2 = ave.hir.broadcast %c0_i8, %0 : i8, vector<64xi1> -> vector<64xi8>
+ ///  %3 = ave.hir.vsel %res, %1, %2 : vector<64xi1>, vector<64xi8>
+ ///  ```
+-struct ConstantOpToHivmPLTLowering
+-    : public OpConversionPattern<arith::ConstantOp> {
+-  using OpConversionPattern<arith::ConstantOp>::OpConversionPattern;
++// GCC rejects explicit specializations of member class templates at class
++// scope, so the helpers live at namespace scope and are aliased below.
++template <typename T> struct PLTAPTypeHelper;
+ 
+-  template <typename T> struct APTypeHelper;
++template <> struct PLTAPTypeHelper<APInt> {
+ 
+-  template <> struct APTypeHelper<APInt> {
++  static APInt createDefault(Type elementType) {
++    return APInt(elementType.getIntOrFloatBitWidth(), 0);
++  }
+ 
+-    static APInt createDefault(Type elementType) {
+-      return APInt(elementType.getIntOrFloatBitWidth(), 0);
+-    }
++  static Value createScalar(ConversionPatternRewriter &rewriter,
++                            const Location &loc, VectorType tileType,
++                            Type elementType, const APInt &value, Value mask) {
++    auto constValue = rewriter.create<arith::ConstantOp>(
++        loc, elementType, rewriter.getIntegerAttr(elementType, value));
++    return rewriter.create<hivmave::VFBroadcastScalarMaskOp>(
++        loc, tileType, constValue, mask);
++  }
++};
+ 
+-    static Value createScalar(ConversionPatternRewriter &rewriter,
+-                              const Location &loc, VectorType tileType,
+-                              Type elementType, const APInt &value,
+-                              Value mask) {
+-      auto constValue = rewriter.create<arith::ConstantOp>(
+-          loc, elementType, rewriter.getIntegerAttr(elementType, value));
+-      return rewriter.create<hivmave::VFBroadcastScalarMaskOp>(
+-          loc, tileType, constValue, mask);
+-    }
+-  };
++template <> struct PLTAPTypeHelper<llvm::APFloat> {
+ 
+-  template <> struct APTypeHelper<llvm::APFloat> {
++  static APFloat createDefault(Type elementType) {
++    auto floatType = mlir::cast<FloatType>(elementType);
++    return APFloat(floatType.getFloatSemantics());
++  }
+ 
+-    static APFloat createDefault(Type elementType) {
+-      auto floatType = mlir::cast<FloatType>(elementType);
+-      return APFloat(floatType.getFloatSemantics());
+-    }
++  static Value createScalar(ConversionPatternRewriter &rewriter,
++                            const Location &loc, VectorType tileType,
++                            Type elementType, const APFloat &value, Value mask) {
++    auto constValue = rewriter.create<arith::ConstantOp>(
++        loc, elementType, rewriter.getFloatAttr(elementType, value));
++    return rewriter.create<hivmave::VFBroadcastScalarMaskOp>(
++        loc, tileType, constValue, mask);
++  }
++};
+ 
+-    static Value createScalar(ConversionPatternRewriter &rewriter,
+-                              const Location &loc, VectorType tileType,
+-                              Type elementType, const APFloat &value,
+-                              Value mask) {
+-      auto constValue = rewriter.create<arith::ConstantOp>(
+-          loc, elementType, rewriter.getFloatAttr(elementType, value));
+-      return rewriter.create<hivmave::VFBroadcastScalarMaskOp>(
+-          loc, tileType, constValue, mask);
+-    }
+-  };
++struct ConstantOpToHivmPLTLowering
++    : public OpConversionPattern<arith::ConstantOp> {
++  using OpConversionPattern<arith::ConstantOp>::OpConversionPattern;
++
++  template <typename T> using APTypeHelper = PLTAPTypeHelper<T>;
+ 
+   template <typename T>
+   LogicalResult
+@@ -911,177 +913,182 @@
+ ///  ```mlir
+ ///  %cst = hivm.hir.ave.vci 0 : vector<64xi32>
+ ///  ```
+-struct ConstantOpToHivmVCIVCPLowering
+-    : public OpConversionPattern<arith::ConstantOp> {
+-  using OpConversionPattern<arith::ConstantOp>::OpConversionPattern;
++// GCC rejects class-scope explicit specializations of member templates, so
++// these helpers live at namespace scope and are aliased inside the class.
+ 
+-  template <typename T>
+-  static arith::ConstantOp ConstantCreateHelper(OpBuilder &rewriter,
+-                                                Location loc, Type elementType,
+-                                                T value) {
+-    if (mlir::isa<IndexType>(elementType) && std::is_integral_v<T>) {
+-      return rewriter.create<arith::ConstantOp>(
+-          loc, elementType, IntegerAttr::get(elementType, value));
+-    } else if (mlir::isa<IntegerType>(elementType) && std::is_integral_v<T>) {
+-      return rewriter.create<arith::ConstantOp>(
+-          loc, IntegerAttr::get(elementType, value));
+-    } else if (mlir::isa<FloatType>(elementType)) {
+-      return rewriter.create<arith::ConstantOp>(
+-          loc, FloatAttr::get(elementType, value));
+-    } else {
+-      return arith::ConstantOp();
+-    }
+-  }
++template <typename T> struct VCIVCPAPTypeHelper;
+ 
+-  template <typename T> struct APTypeHelper;
++template <> struct VCIVCPAPTypeHelper<APInt> {
++  using ElementType = int64_t;
+ 
+-  template <> struct APTypeHelper<APInt> {
+-    using ElementType = int64_t;
++  static ElementType extract(const APInt &x) { return x.getSExtValue(); }
+ 
+-    static ElementType extract(const APInt &x) { return x.getSExtValue(); }
++  static ElementType extractZ(const APInt &x) { return x.getZExtValue(); }
+ 
+-    static ElementType extractZ(const APInt &x) { return x.getZExtValue(); }
++  static void divrem(const ElementType &dividedNum,
++                     const ElementType &divisorNum, APInt &newValue,
++                     ElementType &remainder) {
++    APInt divided(64, dividedNum);
++    APInt::sdivrem(divided, divisorNum, newValue, remainder);
++  }
+ 
+-    static void divrem(const ElementType &dividedNum,
+-                       const ElementType &divisorNum, APInt &newValue,
+-                       ElementType &remainder) {
+-      APInt divided(64, dividedNum);
+-      APInt::sdivrem(divided, divisorNum, newValue, remainder);
+-    }
++  static bool isInteger(const ElementType &x) {
++    (void)x;
++    return true;
++  }
+ 
+-    static bool isInteger(const ElementType &x) {
+-      (void)x;
+-      return true;
+-    }
++  static std::tuple<bool, ElementType, ElementType, std::vector<APInt>>
++  extractArithmeticSequenceParams(DenseElementsAttr denseAttr,
++                                  unsigned valueCheckRange) {
++    auto values = llvm::to_vector<0>(denseAttr.getValues<APInt>());
++    std::vector<APInt> quotients;
++    auto extractFunc = VCIVCPAPTypeHelper<APInt>::extract;
++    if (denseAttr.getElementType().isSignlessInteger())
++      extractFunc = VCIVCPAPTypeHelper<APInt>::extractZ;
++    ElementType addValue = extractFunc(values[0]);
++    ElementType mulValue = extractFunc(values[1]) - addValue;
++
++    if (mulValue == 0)
++      return std::make_tuple(false, 0, 0, quotients);
++
++    for (unsigned i = 0; i < valueCheckRange; ++i) {
++      APInt newValue;
++      ElementType remainder = 0;
+ 
+-    static std::tuple<bool, ElementType, ElementType, std::vector<APInt>>
+-    extractArithmeticSequenceParams(DenseElementsAttr denseAttr,
+-                                    unsigned valueCheckRange) {
+-      auto values = llvm::to_vector<0>(denseAttr.getValues<APInt>());
+-      std::vector<APInt> quotients;
+-      auto extractFunc = APTypeHelper<APInt>::extract;
+-      if (denseAttr.getElementType().isSignlessInteger())
+-        extractFunc = APTypeHelper<APInt>::extractZ;
+-      ElementType addValue = extractFunc(values[0]);
+-      ElementType mulValue = extractFunc(values[1]) - addValue;
++      ElementType scoreDiff = extractFunc(values[i]) - addValue;
++      divrem(scoreDiff, mulValue, newValue, remainder);
+ 
+-      if (mulValue == 0)
++      if (remainder != 0 || newValue.slt(0))
+         return std::make_tuple(false, 0, 0, quotients);
+ 
+-      for (unsigned i = 0; i < valueCheckRange; ++i) {
+-        APInt newValue;
+-        ElementType remainder = 0;
+-
+-        ElementType scoreDiff = extractFunc(values[i]) - addValue;
+-        divrem(scoreDiff, mulValue, newValue, remainder);
+-
+-        if (remainder != 0 || newValue.slt(0))
+-          return std::make_tuple(false, 0, 0, quotients);
+-
+-        quotients.push_back(newValue);
+-      }
+-
+-      return std::make_tuple(true, addValue, mulValue, quotients);
++      quotients.push_back(newValue);
+     }
+-  };
+-  template <> struct APTypeHelper<APFloat> {
+-    using ElementType = float;
+ 
+-    static ElementType extract(const APFloat &v) {
+-      return v.convertToFloat(); // RianF 用double吗
+-    }
+-
+-    static void divrem(const ElementType &dividendNum,
+-                       const ElementType &divisorNum, APInt &quotientAPInt,
+-                       ElementType &remainderFloat) {
+-      APFloat dividend(dividendNum);
+-      APFloat divisor(divisorNum);
+-
+-      // Integer quotient
+-      APFloat quotient = dividend;
+-      quotient.divide(divisor, APFloat::rmNearestTiesToEven);
+-      bool ignored = false;
+-      APSInt quotientAPSInt(64, true);
+-      quotient.convertToInteger(quotientAPSInt, APFloat::rmTowardZero,
+-                                &ignored);
+-      quotientAPInt = static_cast<llvm::APInt>(quotientAPSInt);
+-
+-      // remainder
+-      dividend.remainder(divisor);
+-      remainderFloat = dividend.convertToFloat();
+-    }
+-
+-    static bool isInteger(const ElementType &x) {
+-      APFloat tmp(x);
+-      return tmp.isInteger();
+-    }
+-
+-    static std::tuple<bool, ElementType, ElementType, std::vector<APInt>>
+-    extractArithmeticSequenceParams(DenseElementsAttr denseAttr,
+-                                    unsigned valueCheckRange) {
+-      auto values = llvm::to_vector<0>(denseAttr.getValues<APFloat>());
+-      std::vector<APInt> quotients;
+-
+-      // NaN values break every float comparison below (NaN > epsilon is always
+-      // false, NaN == 0 is false, ...), so a NaN splat would be misdetected as
+-      // an arithmetic sequence and lowered to ave.hir.vci which does not accept
+-      // bf16. Reject NaN early and let the normal splat lowering handle it.
+-      if (llvm::any_of(values, [](const APFloat &v) { return v.isNaN(); }))
+-        return std::make_tuple(false, 0.0f, 0.0f, quotients);
++    return std::make_tuple(true, addValue, mulValue, quotients);
++  }
++};
++template <> struct VCIVCPAPTypeHelper<APFloat> {
++  using ElementType = float;
+ 
+-      double epsilon;
+-      if (denseAttr.getElementType().isF16() ||
+-          denseAttr.getElementType().isBF16())
+-        epsilon = 1e-3;
+-      else if (denseAttr.getElementType().isF32())
+-        epsilon = 1e-4;
+-      else {
+-        // currently, only support f16 or f32
+-        return std::make_tuple(false, 0.0f, 0.0f, quotients);
+-      }
++  static ElementType extract(const APFloat &v) {
++    return v.convertToFloat(); // RianF 用double吗
++  }
+ 
+-      std::vector<ElementType> diffs;
+-      diffs.reserve(valueCheckRange - 1);
+-      std::transform(values.begin() + 1, values.begin() + valueCheckRange,
+-                     values.begin(), std::back_inserter(diffs),
+-                     [](const APFloat &curr, const APFloat &prev) {
+-                       return extract(curr) - extract(prev);
+-                     });
+-
+-      auto [min_iter, max_iter] =
+-          std::minmax_element(diffs.begin(), diffs.end());
+-      ElementType dmin = *min_iter;
+-      ElementType dmax = *max_iter;
++  static void divrem(const ElementType &dividendNum,
++                     const ElementType &divisorNum, APInt &quotientAPInt,
++                     ElementType &remainderFloat) {
++    APFloat dividend(dividendNum);
++    APFloat divisor(divisorNum);
++
++    // Integer quotient
++    APFloat quotient = dividend;
++    quotient.divide(divisor, APFloat::rmNearestTiesToEven);
++    bool ignored = false;
++    APSInt quotientAPSInt(64, true);
++    quotient.convertToInteger(quotientAPSInt, APFloat::rmTowardZero,
++                              &ignored);
++    quotientAPInt = static_cast<llvm::APInt>(quotientAPSInt);
++
++    // remainder
++    dividend.remainder(divisor);
++    remainderFloat = dividend.convertToFloat();
++  }
+ 
+-      if (std::abs(dmax - dmin) > 2 * epsilon) {
+-        return std::make_tuple(false, 0.0f, 0.0f, quotients);
+-      }
++  static bool isInteger(const ElementType &x) {
++    APFloat tmp(x);
++    return tmp.isInteger();
++  }
+ 
+-      ElementType addValue = extract(values[0]);
+-      ElementType mulValue =
+-          std::accumulate(diffs.begin(), diffs.end(), 0.0) / diffs.size();
++  static std::tuple<bool, ElementType, ElementType, std::vector<APInt>>
++  extractArithmeticSequenceParams(DenseElementsAttr denseAttr,
++                                  unsigned valueCheckRange) {
++    auto values = llvm::to_vector<0>(denseAttr.getValues<APFloat>());
++    std::vector<APInt> quotients;
++
++    // NaN values break every float comparison below (NaN > epsilon is always
++    // false, NaN == 0 is false, ...), so a NaN splat would be misdetected as
++    // an arithmetic sequence and lowered to ave.hir.vci which does not accept
++    // bf16. Reject NaN early and let the normal splat lowering handle it.
++    if (llvm::any_of(values, [](const APFloat &v) { return v.isNaN(); }))
++      return std::make_tuple(false, 0.0f, 0.0f, quotients);
++
++    double epsilon;
++    if (denseAttr.getElementType().isF16() ||
++        denseAttr.getElementType().isBF16())
++      epsilon = 1e-3;
++    else if (denseAttr.getElementType().isF32())
++      epsilon = 1e-4;
++    else {
++      // currently, only support f16 or f32
++      return std::make_tuple(false, 0.0f, 0.0f, quotients);
++    }
++
++    std::vector<ElementType> diffs;
++    diffs.reserve(valueCheckRange - 1);
++    std::transform(values.begin() + 1, values.begin() + valueCheckRange,
++                   values.begin(), std::back_inserter(diffs),
++                   [](const APFloat &curr, const APFloat &prev) {
++                     return extract(curr) - extract(prev);
++                   });
++
++    auto [min_iter, max_iter] =
++        std::minmax_element(diffs.begin(), diffs.end());
++    ElementType dmin = *min_iter;
++    ElementType dmax = *max_iter;
++
++    if (std::abs(dmax - dmin) > 2 * epsilon) {
++      return std::make_tuple(false, 0.0f, 0.0f, quotients);
++    }
++
++    ElementType addValue = extract(values[0]);
++    ElementType mulValue =
++        std::accumulate(diffs.begin(), diffs.end(), 0.0) / diffs.size();
++
++    // Avoid divide 0
++    if (std::abs(mulValue) < 1e-7) {
++      return std::make_tuple(false, 0.0f, 0.0f, quotients);
++    }
++
++    for (unsigned i = 0; i < valueCheckRange; ++i) {
++      double x = static_cast<double>(i);
++      double y_actual = extract(values[i]);
++      double y_expected = addValue + mulValue * x;
++      double error = std::abs(y_actual - y_expected);
+ 
+-      // Avoid divide 0
+-      if (std::abs(mulValue) < 1e-7) {
++      if (error > epsilon) {
+         return std::make_tuple(false, 0.0f, 0.0f, quotients);
+       }
+ 
+-      for (unsigned i = 0; i < valueCheckRange; ++i) {
+-        double x = static_cast<double>(i);
+-        double y_actual = extract(values[i]);
+-        double y_expected = addValue + mulValue * x;
+-        double error = std::abs(y_actual - y_expected);
++      quotients.emplace_back(64, static_cast<int64_t>(std::round(x)));
++    }
+ 
+-        if (error > epsilon) {
+-          return std::make_tuple(false, 0.0f, 0.0f, quotients);
+-        }
++    return std::make_tuple(true, addValue, mulValue, quotients);
++  }
++};
+ 
+-        quotients.emplace_back(64, static_cast<int64_t>(std::round(x)));
+-      }
++struct ConstantOpToHivmVCIVCPLowering
++    : public OpConversionPattern<arith::ConstantOp> {
++  using OpConversionPattern<arith::ConstantOp>::OpConversionPattern;
+ 
+-      return std::make_tuple(true, addValue, mulValue, quotients);
++  template <typename T>
++  static arith::ConstantOp ConstantCreateHelper(OpBuilder &rewriter,
++                                                Location loc, Type elementType,
++                                                T value) {
++    if (mlir::isa<IndexType>(elementType) && std::is_integral_v<T>) {
++      return rewriter.create<arith::ConstantOp>(
++          loc, elementType, IntegerAttr::get(elementType, value));
++    } else if (mlir::isa<IntegerType>(elementType) && std::is_integral_v<T>) {
++      return rewriter.create<arith::ConstantOp>(
++          loc, IntegerAttr::get(elementType, value));
++    } else if (mlir::isa<FloatType>(elementType)) {
++      return rewriter.create<arith::ConstantOp>(
++          loc, FloatAttr::get(elementType, value));
++    } else {
++      return arith::ConstantOp();
+     }
+-  };
++  }
++
++  template <typename T> using APTypeHelper = VCIVCPAPTypeHelper<T>;
+ 
+   /// helper class to wrap the logic of integer pattern checking
+   template <typename T> struct PatternValueCheckerBase {

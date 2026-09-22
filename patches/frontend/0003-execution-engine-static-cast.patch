@@ -1,0 +1,12 @@
+--- a/bishengir/lib/ExecutionEngine/CreateHostMain.cpp
++++ b/bishengir/lib/ExecutionEngine/CreateHostMain.cpp
+@@ -360,7 +360,8 @@
+         rewriter, std::move(operands),
+         llvm::map_to_vector(
+             kernelFunc.getFunctionType().getInputs(),
+-            static_cast<ShapedType (*)(const Type &)>(cast<ShapedType>)));
++            static_cast<ShapedType (*)(const Type &)>(
++                [](const Type &type) { return cast<ShapedType>(type); })));
+     auto kernelCall = rewriter.create<func::CallOp>(
+         loc, kernelFunc,
+         SmallVector<Value>(kernelOperands.begin(), kernelOperands.end()));
