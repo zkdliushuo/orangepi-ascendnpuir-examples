@@ -98,7 +98,11 @@ ensure_dir "$OUT_DIR"
 # 取得设备组时，这是最可靠的运行方式。
 run_on_device() {
   local env_string
-  env_string="ASCEND_HOME_PATH='$ASCEND_HOME_PATH' ASCEND_OPP_PATH='$ASCEND_OPP_PATH' LD_LIBRARY_PATH='$LD_LIBRARY_PATH'"
+  # 本例只运行 AI Core vecadd，不使用自定义 AI CPU 扩展。
+  # CANN 9 的 set_env.sh 会导出 ASCEND_AICPU_PATH；在已验证的 310B1
+  # 镜像上，带入该覆盖值会导致 TsdOpen error=31 / aclrtSetDevice 507033。
+  # 只对示例子进程清除此值，保留调用者的 CANN 环境及其它编译设置。
+  env_string="env -u ASCEND_AICPU_PATH ASCEND_HOME_PATH='$ASCEND_HOME_PATH' ASCEND_OPP_PATH='$ASCEND_OPP_PATH' LD_LIBRARY_PATH='$LD_LIBRARY_PATH'"
   if [[ -n "$ASCEND_SSH" ]]; then
     echo "=== run via ssh $ASCEND_SSH ===" >&2
     # shellcheck disable=SC2086

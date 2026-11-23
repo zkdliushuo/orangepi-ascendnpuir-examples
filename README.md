@@ -82,18 +82,21 @@ ninja --version
 
 ### 2.2 CANN 9.0.0 toolkit 与 310B 算子包
 
-从昇腾社区下载 aarch64 版本的两个包：`Ascend-cann-toolkit_9.0.0_linux-aarch64.run`
-与 `Ascend-cann-kernels-310b_9.0.0_linux.run`，安装到工作区的 `deps/` 下：
+从[昇腾社区 CANN 官网下载页](https://www.hiascend.com/cann/download?versionId=734&ids=d105,h0501,h0602,h0703)
+选择 **9.0.0 / 310B / AArch64 / Ubuntu / 离线 Runfile**，下载两个独立包：`Ascend-cann-toolkit_9.0.0_linux-aarch64.run`
+与 `Ascend-cann-310b-ops_9.0.0_linux-aarch64.run`，安装到工作区的 `deps/` 下：
 
 ```bash
 mkdir -p ../deps
 cd ../deps
 ./Ascend-cann-toolkit_9.0.0_linux-aarch64.run --install --install-path=. --quiet
-./Ascend-cann-kernels-310b_9.0.0_linux.run       --install --install-path=. --quiet
+./Ascend-cann-310b-ops_9.0.0_linux-aarch64.run       --install --install-path=. --quiet
 # 安装完成后目录形如 ../deps/cann-9.0.0（以及 ../deps/cann 软链）
 ls ../deps/cann-9.0.0/bin/bishengir-compile-a5
 source ../deps/cann-9.0.0/set_env.sh
 ```
+
+官网下载入口、准确包名和详细安装步骤见[工具链部署文档第 0.1 节](docs/01-toolchain-build.md#01-两种方式共用的准备工作)。
 
 设备驱动由设备镜像/驱动包提供（默认装在 `/usr/local/Ascend/driver`，
 可用 `ASCEND_DRIVER_DIR` 覆盖），**不属于** CANN toolkit，本仓库不重新安装它。
@@ -327,6 +330,7 @@ python3 scripts/lib/make_screenshot.py docs/logs/verify.log \
 | 现象 | 原因 / 处理 |
 | --- | --- |
 | `aclInit failed ... open device manager fail ... err=13` | 当前会话缺少设备组，重新登录或 `ASCEND_SSH=localhost` 运行 |
+| 加载 CANN 环境后 `aclrtSetDevice failed: 507033` / `TsdOpen ... error=31` | 本板实测与 `ASCEND_AICPU_PATH` 覆盖有关；更新仓库后，`run_on_device` 会仅对 AI Core 示例子进程清除此值，见工具链部署文档第 0.1 节 |
 | `Unsupported attribute type: "hacc.noinline"` | 后端还是 CANN 9 的 1.0.0 `hivmc-a5`，改用本仓库构建的 1.2.0 `out/bin/hivmc` |
 | `error in backend: Do not know how to split the result of this operator!` | 后端把 310B1 当成 `dav-c220` 编译，应用 `patches/hivmc/0004-*` |
 | `RegisterAscendBinary ret=107000` | 内核对象不满足容器格式（入口符号名/size、`__CCE_KernelArgSize`），见 6.3 |

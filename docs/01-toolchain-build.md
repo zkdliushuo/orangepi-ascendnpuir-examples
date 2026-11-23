@@ -66,17 +66,30 @@ strings /usr/lib/aarch64-linux-gnu/libstdc++.so.6 \
 
 #### 第 3 步：安装 CANN 9.0.0 与 310B 算子包
 
-从昇腾社区按其许可自行取得 aarch64 版
-`Ascend-cann-toolkit_9.0.0_linux-aarch64.run` 和
-`Ascend-cann-kernels-310b_9.0.0_linux.run`，放到 `$WORK_ROOT/deps`，再执行：
+官方入口：[昇腾社区 CANN 安装部署](https://www.hiascend.com/cann/download)，
+或直接打开[预选 CANN 9.0.0 / 310B / AArch64 / Ubuntu / Runfile 的页面](https://www.hiascend.com/cann/download?versionId=734&ids=d105,h0501,h0602,h0703)。
+若预选项未保留，请依次选择 **稳定版本 9.0.0 → 310B 系列产品 → AArch64 → Ubuntu → 离线安装（Runfile）**。
+按官网提示登录，并自行阅读和确认相应软件许可后下载。安装说明见
+[CANN 9.0.X 官方安装指南](https://www.hiascend.com/document/detail/zh/CANNCommunityEdition/900/softwareinst/instg/instg_0000.html)。
+
+本项目已有设备驱动，下载下面两个独立包。官网也可能默认显示驱动与 Toolkit
+合一包 `Ascend-cann_9.0.0_linux-aarch64.run`，请核对所选文件名：
+
+| 软件包 | 文件名与官方下载链接 |
+| --- | --- |
+| 独立 Toolkit（AArch64） | [Ascend-cann-toolkit_9.0.0_linux-aarch64.run](https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/CANN/CANN%209.0.0/Ascend-cann-toolkit_9.0.0_linux-aarch64.run) |
+| 310B 算子包（AArch64） | [Ascend-cann-310b-ops_9.0.0_linux-aarch64.run](https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/CANN/CANN%209.0.0/Ascend-cann-310b-ops_9.0.0_linux-aarch64.run) |
+
+这里的 9.0.0 算子包名是 `310b-ops`；不要沿用旧版本的 `kernels-310b` 命名。
+将两个文件放到 `$WORK_ROOT/deps`，再执行：
 
 ```bash
 cd "$WORK_ROOT/deps"
 chmod +x Ascend-cann-toolkit_9.0.0_linux-aarch64.run \
-         Ascend-cann-kernels-310b_9.0.0_linux.run
+         Ascend-cann-310b-ops_9.0.0_linux-aarch64.run
 ./Ascend-cann-toolkit_9.0.0_linux-aarch64.run \
   --install --install-path="$WORK_ROOT/deps" --quiet
-./Ascend-cann-kernels-310b_9.0.0_linux.run \
+./Ascend-cann-310b-ops_9.0.0_linux-aarch64.run \
   --install --install-path="$WORK_ROOT/deps" --quiet
 
 # 找到本次安装生成的 toolkit 根目录（同时包含 bin/ 与 tools/）。
@@ -93,6 +106,18 @@ cd "$WORK_ROOT/ascend310b1-vecadd"
 加载其 `set_env.sh`。该目录必须包含上面检查的两个程序。需要持久保存自定义路径时，
 可在 `scripts/config.local.sh` 中写入 `ASCEND_HOME_PATH="/实际/toolkit/目录"`；
 该文件已由 Git 忽略。
+
+`set_env.sh` 可能将 `ASCEND_HOME_PATH` 归一化为实际安装路径，这是正常行为。
+在这次验证的 310B1 镜像上，它还会导出 `ASCEND_AICPU_PATH`，带入此值会使
+`aclrtSetDevice` 报 `507033`、`TsdOpen failed ... tdt error=31`。本项目的 vecadd
+只使用 AI Core，`scripts/00_env.sh` 的 `run_on_device` 会仅在示例启动子进程中
+清除该 AI CPU 路径覆盖，因此按本文加载 CANN 后可以直接运行第 21、22 号脚本。
+若使用旧克隆，请先更新仓库。手动启动同一示例时可使用：
+
+```bash
+env -u ASCEND_AICPU_PATH ./out/vecadd/run_add out/vecadd/kernel.o
+# 该命令仅适用于本文 AI Core 示例，不作为其他 AI CPU 算子的环境配置。
+```
 
 设备驱动和固件由香橙派镜像或对应驱动包提供，默认驱动目录是
 `/usr/local/Ascend/driver`，位置不同时设置 `ASCEND_DRIVER_DIR`。确认设备文件及
@@ -206,9 +231,17 @@ LLVM IR launcher 应输出相同的零错误比较结果，以及
 端到端验证。只看到 `--version` 成功还不能说明设备编译和启动可用。
 
 本次发布已于 **2026-11-23** 在 Ubuntu 22.04.3 aarch64、glibc 2.35、
-CANN 9.0.0、Ascend310B1 上完成上述验证：在独立项目目录安装压缩包，
-重新提取模板、生成内核并运行两种启动程序，二者均为 `0/1024 mismatched`、
-`VECADD PASS`。测试使用新目录的默认 `out/`，没有复用旧目录的内核。
+CANN 9.0.0、Ascend310B1 上按本文逐步复测：在全新工作区通过 HTTPS 克隆
+仓库，从 GitHub Release 重新下载并校验压缩包，解压检查、安装两个编译器，
+重新提取模板、生成内核并运行两种启动程序。C 示例和 LLVM IR launcher
+均为 `0/1024 mismatched`、`VECADD PASS`。
+
+测试前清空继承的工具路径覆盖变量，使用新仓库默认 `out/`，新工作区的 `deps/`
+保持为空，没有引用旧项目的编译器、模板、内核或上游源码/LLVM 构建目录。
+系统依赖和 CANN 9.0.0 按 0.1 节“已有安装”的分支复用，未重装 CANN 或驱动。
+首次严格按文档加载 `set_env.sh` 后发现上述 `507033 / TsdOpen error=31`，
+修复示例启动子进程的 AI CPU 路径覆盖后，重新安装、编译和两种上板测试均通过，
+并确认调用者的 `ASCEND_AICPU_PATH` 未被修改。
 这不代表已验证其他系统或 CANN 版本；精确前端源码提交未记录，详见包内 `build-info.txt`。
 
 以后可在仓库根目录直接执行 `./scripts/99_verify.sh` 重复完整验证；使用二进制
