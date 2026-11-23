@@ -1,8 +1,8 @@
-# Ascend310B1 vecadd：AscendNPU-IR + hivmc 从源码编译、安装与算子执行
+# Ascend310B1 vecadd：AscendNPU-IR + hivmc 部署、编译与算子执行
 
 目标：在一台 Ascend310B1（`dav-m300`，香橙派 20T + CANN 9.0.0）上
 
-1. 从源码编译 AscendNPU-IR 的前端 `bishengir-compile` 与设备后端 `hivmc`；
+1. 从源码编译或从二进制包部署 AscendNPU-IR 的前端 `bishengir-compile` 与设备后端 `hivmc`；
 2. 用它们把 **vecadd 算子**（AscendNPU-IR 表示的 MLIR）编译成可执行内核 `kernel.o`；
 3. 用 C 示例程序与 LLVM IR launcher 在设备上正确调用并校验结果。
 
@@ -17,6 +17,12 @@
 [用 LLVM IR 调用 vecadd](docs/03-llvm-ir-launch.md)
 
 ## 0. 结论速览
+
+**快速部署**：已有 Ubuntu 22.04 aarch64、CANN 9.0.0 和 310B 驱动时，可从
+[GitHub Release](https://github.com/zkdliushuo/orangepi-ascendnpuir-examples/releases/tag/toolchain-v1.2.0-310b1-20261123)
+下载预编译工具链，按[工具链部署文档](docs/01-toolchain-build.md#02-方式一从-github-release-部署二进制)
+完成下载、SHA256 校验、解压、安装和上板测试。二进制包不含 CANN、驱动或模板 bitcode。
+需要修改编译器时，使用同一文档中的源码编译流程。
 
 | 项目 | 选择 | 原因 |
 | --- | --- | --- |
