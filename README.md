@@ -15,7 +15,8 @@
 [工具链部署](docs/01-toolchain-build.md) ·
 [工具链内部机制](docs/05-toolchain-internals.md) ·
 [算子编译流水线与容器格式](docs/02-vecadd-pipeline.md) ·
-[用 LLVM IR 调用 vecadd](docs/03-llvm-ir-launch.md)
+[用 LLVM IR 调用 vecadd](docs/03-llvm-ir-launch.md) ·
+[vecadd 各层 IR 对照](examples/vecadd/output/README.md)
 
 ## 0. 结论速览
 
@@ -367,6 +368,7 @@ examples/vecadd/
   src/vecadd_runner_310b1.cpp        C 示例程序（AscendC runtime ABI）
   src/llvm_launch_driver_310b1.cpp   LLVM IR launcher 的 C++ 外壳
   llvm/*.ll                  CPU 侧 LLVM IR 示例
+  output/                    HFusion / HIVM / 设备 LLVM IR 快照与对照说明
   abi_reference/             上游 910B ABI shim 参考实现（未在 310B1 验证）
   tools/                     注解补丁脚本与 bisheng 捕获 shim
 docs/

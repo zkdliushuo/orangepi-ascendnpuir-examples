@@ -1,0 +1,139 @@
+{
+  "schema_version": 1,
+  "generated_at_utc": "2026-11-23T12:47:23+00:00",
+  "target": "Ascend310B1 / dav-m300",
+  "input": {
+    "path": "examples/vecadd/mlir/add_310b1.mlir",
+    "sha256": "f3ed6c2bf4eca4ba1f43b7cc1b61b9bd9496faa91af19029149c6fd501c856a2"
+  },
+  "example_repository_commit": "0b5bb9084e3535f18d231cbaa42e81a07bd1125f",
+  "compilers": {
+    "frontend": {
+      "version": "bishengir-compile 1.2.0  \nllvm 19.1.7\nRelease build",
+      "sha256": "aaefe6f504a5404143363d5e851bfbbd2facdd36f8f9774a2ac001d0bbd0dbda",
+      "original_build_revision": "unrecorded"
+    },
+    "backend": {
+      "version": "hivmc 1.2.0 (https://github.com/Ascend/AscendNPU-IR.git f8e8d68cd492 2026-09-22) \nllvm 19.1.7 f8e8d68cd492\nRelease build",
+      "sha256": "428d0c8e729da899e88ac85b1d141def5f7cc2f75b0eb17e7a8e429cd6969b1a"
+    }
+  },
+  "environment": {
+    "platform": "Linux aarch64",
+    "libc": "glibc 2.35",
+    "cann": "9.0.0"
+  },
+  "common_compile_flags": [
+    "--target=Ascend310B1",
+    "-enable-hfusion-compile=true",
+    "-block-dim=1",
+    "--link-aicore-bitcode=<DEVICE_BITCODE>",
+    "--enable-tuning-mode",
+    "--mlir-disable-threading"
+  ],
+  "native_snapshots": [
+    {
+      "file": "10-hfusion.mlir",
+      "after_pass_execution_id": "convert-linalg-to-hfusion/module/0",
+      "method": "GDB exact-entry Operation::emitError breakpoint calling the unchanged ELF Operation::dump",
+      "compiler_exit_status": 1,
+      "expected_error": "missing injection file followed by deliberately invalid backend option",
+      "additional_flags": [
+        "--inject-ir-after=convert-linalg-to-hfusion/module/0@<EXPECTED_MISSING_FILE>",
+        "--hivmc-args=--link-host-bitcode=<HOST_BITCODE> --intentionally-stop-ir-dump",
+        "--save-temps=<RUN_SCRATCH>/temps"
+      ],
+      "compiler_success_test": false
+    },
+    {
+      "file": "20-hfusion-scheduled.mlir",
+      "after_pass_execution_id": "hfusion-auto-schedule/module/0",
+      "method": "GDB exact-entry Operation::emitError breakpoint calling the unchanged ELF Operation::dump",
+      "compiler_exit_status": 1,
+      "expected_error": "missing injection file followed by deliberately invalid backend option",
+      "additional_flags": [
+        "--inject-ir-after=hfusion-auto-schedule/module/0@<EXPECTED_MISSING_FILE>",
+        "--hivmc-args=--link-host-bitcode=<HOST_BITCODE> --intentionally-stop-ir-dump",
+        "--save-temps=<RUN_SCRATCH>/temps"
+      ],
+      "compiler_success_test": false
+    },
+    {
+      "file": "30-hivm-tensor.mlir",
+      "after_pass_execution_id": "convert-to-hivm-op/module/0",
+      "method": "GDB exact-entry Operation::emitError breakpoint calling the unchanged ELF Operation::dump",
+      "compiler_exit_status": 1,
+      "expected_error": "missing injection file followed by deliberately invalid backend option",
+      "additional_flags": [
+        "--inject-ir-after=convert-to-hivm-op/module/0@<EXPECTED_MISSING_FILE>",
+        "--hivmc-args=--link-host-bitcode=<HOST_BITCODE> --intentionally-stop-ir-dump",
+        "--save-temps=<RUN_SCRATCH>/temps"
+      ],
+      "compiler_success_test": false
+    },
+    {
+      "file": "40-hivm-buffer.mlir",
+      "after_pass_execution_id": "one-shot-bufferize/module/0",
+      "method": "GDB exact-entry Operation::emitError breakpoint calling the unchanged ELF Operation::dump",
+      "compiler_exit_status": 1,
+      "expected_error": "missing injection file followed by deliberately invalid backend option",
+      "additional_flags": [
+        "--inject-ir-after=one-shot-bufferize/module/0@<EXPECTED_MISSING_FILE>",
+        "--hivmc-args=--link-host-bitcode=<HOST_BITCODE> --intentionally-stop-ir-dump",
+        "--save-temps=<RUN_SCRATCH>/temps"
+      ],
+      "compiler_success_test": false
+    },
+    {
+      "file": "50-hivm-memory-planned.mlir",
+      "after_pass_execution_id": "hivm-plan-memory/module/2",
+      "method": "GDB exact-entry Operation::emitError breakpoint calling the unchanged ELF Operation::dump",
+      "compiler_exit_status": 1,
+      "expected_error": "missing injection file followed by deliberately invalid backend option",
+      "additional_flags": [
+        "--inject-ir-after=hivm-plan-memory/module/2@<EXPECTED_MISSING_FILE>",
+        "--hivmc-args=--link-host-bitcode=<HOST_BITCODE> --intentionally-stop-ir-dump",
+        "--save-temps=<RUN_SCRATCH>/temps"
+      ],
+      "compiler_success_test": false
+    },
+    {
+      "file": "60-hivm-synchronized.mlir",
+      "after_pass_execution_id": "hivm-graph-sync-solver/add/0",
+      "method": "GDB exact-entry Operation::emitError breakpoint calling the unchanged ELF Operation::dump",
+      "compiler_exit_status": 1,
+      "expected_error": "missing injection file followed by deliberately invalid backend option",
+      "additional_flags": [
+        "--inject-ir-after=hivm-graph-sync-solver/add/0@<EXPECTED_MISSING_FILE>",
+        "--hivmc-args=--link-host-bitcode=<HOST_BITCODE> --intentionally-stop-ir-dump",
+        "--save-temps=<RUN_SCRATCH>/temps"
+      ],
+      "compiler_success_test": false
+    }
+  ],
+  "independent_normal_compilation": {
+    "compiler_exit_status": 0,
+    "final_frontend_mlir": "70-final-frontend.mlir",
+    "device_llvm_ir": "80-device.ll",
+    "output_object_produced": true,
+    "additional_flags": [
+      "--hivmc-args=--link-host-bitcode=<HOST_BITCODE>",
+      "--save-temps=<RUN_SCRATCH>/temps"
+    ],
+    "npu_program_launched": false
+  },
+  "annotated_device_ir": {
+    "file": "81-device-annotated.ll",
+    "tool": "examples/vecadd/tools/patch_310b1_annotation.py --symbol add",
+    "purpose": "Add the kernel-entry annotations used by scripts/20_build_vecadd.sh"
+  },
+  "reproduce": "./examples/vecadd/tools/export_ir_310b1.sh",
+  "limitations": [
+    "Trailing whitespace is removed and files end with one newline; IR operation contents are unchanged.",
+    "This is a version-specific diagnostic export method for the unstripped Linux AArch64 1.2.0 frontend; pass names and occurrence indexes may change in other builds.",
+    "The six diagnostic runs intentionally fail and are separate from the successful normal compilation.",
+    "Machine-local paths are replaced with placeholders; restore local bitcode paths before recompiling a saved module directly.",
+    "CANN binaries, drivers and template bitcode are not included in this output directory.",
+    "The original exact frontend source commit is unrecorded; no bit-for-bit compiler rebuild is claimed."
+  ]
+}
