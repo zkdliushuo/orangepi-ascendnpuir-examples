@@ -12,17 +12,24 @@
 `0/1024 mismatched`、`VECADD PASS`。
 
 详细文档：
-[工具链构建与模板 bitcode](docs/01-toolchain-build.md) ·
+[工具链部署](docs/01-toolchain-build.md) ·
+[工具链内部机制](docs/05-toolchain-internals.md) ·
 [算子编译流水线与容器格式](docs/02-vecadd-pipeline.md) ·
 [用 LLVM IR 调用 vecadd](docs/03-llvm-ir-launch.md)
 
 ## 0. 结论速览
 
-**快速部署**：已有 Ubuntu 22.04 aarch64、CANN 9.0.0 和 310B 驱动时，可从
-[GitHub Release](https://github.com/zkdliushuo/orangepi-ascendnpuir-examples/releases/tag/toolchain-v1.2.0-310b1-20261123)
-下载预编译工具链，按[工具链部署文档](docs/01-toolchain-build.md#02-方式一从-github-release-部署二进制)
-完成下载、SHA256 校验、解压、安装和上板测试。二进制包不含 CANN、驱动或模板 bitcode。
-需要修改编译器时，使用同一文档中的源码编译流程。
+**一键二进制部署**：完成[共用准备](docs/01-toolchain-build.md#common-setup)，
+在香橙派的仓库根目录运行：
+
+```bash
+./scripts/06_install_toolchain.sh
+```
+
+脚本自动从 [GitHub Release](https://github.com/zkdliushuo/orangepi-ascendnpuir-examples/releases/tag/toolchain-v1.2.0-310b1-20261123)
+下载、校验并安装编译器，检查环境，再编译和运行 C / LLVM IR 两种 vecadd 示例。
+日志保存在 `out/logs/`。本地压缩包用法见[二进制部署](docs/01-toolchain-build.md#binary-deploy)；
+修改编译器时使用[源码编译](docs/01-toolchain-build.md#source-build)。
 
 | 项目 | 选择 | 原因 |
 | --- | --- | --- |
@@ -96,7 +103,7 @@ ls ../deps/cann-9.0.0/bin/bishengir-compile-a5
 source ../deps/cann-9.0.0/set_env.sh
 ```
 
-官网下载入口、准确包名和详细安装步骤见[工具链部署文档第 0.1 节](docs/01-toolchain-build.md#01-两种方式共用的准备工作)。
+官网下载入口、准确包名和详细安装步骤见[部署文档的共用准备](docs/01-toolchain-build.md#common-setup)。
 
 设备驱动由设备镜像/驱动包提供（默认装在 `/usr/local/Ascend/driver`，
 可用 `ASCEND_DRIVER_DIR` 覆盖），**不属于** CANN toolkit，本仓库不重新安装它。
@@ -187,7 +194,7 @@ cd ../../ascend310b1-vecadd
 保存下来，输出到 `out/a5-templates/`。
 
 关于"模板"到底指什么、为什么只能抓取而不能直接下载、以及它在哪一步被使用，
-见 [docs/01-toolchain-build.md 第 3 节](docs/01-toolchain-build.md#3-模板-bitcode-是什么为什么要抓)。
+见[工具链内部机制第 3 节](docs/05-toolchain-internals.md#3-模板-bitcode-是什么为什么要抓)。
 
 ## 6. 编译 `add` 算子
 
@@ -330,7 +337,7 @@ python3 scripts/lib/make_screenshot.py docs/logs/verify.log \
 | 现象 | 原因 / 处理 |
 | --- | --- |
 | `aclInit failed ... open device manager fail ... err=13` | 当前会话缺少设备组，重新登录或 `ASCEND_SSH=localhost` 运行 |
-| 加载 CANN 环境后 `aclrtSetDevice failed: 507033` / `TsdOpen ... error=31` | 本板实测与 `ASCEND_AICPU_PATH` 覆盖有关；更新仓库后，`run_on_device` 会仅对 AI Core 示例子进程清除此值，见工具链部署文档第 0.1 节 |
+| 加载 CANN 环境后 `aclrtSetDevice failed: 507033` / `TsdOpen ... error=31` | 本板实测与 `ASCEND_AICPU_PATH` 覆盖有关；更新仓库后，`run_on_device` 会仅对 AI Core 示例子进程清除此值，见[工具链内部机制](docs/05-toolchain-internals.md) |
 | `Unsupported attribute type: "hacc.noinline"` | 后端还是 CANN 9 的 1.0.0 `hivmc-a5`，改用本仓库构建的 1.2.0 `out/bin/hivmc` |
 | `error in backend: Do not know how to split the result of this operator!` | 后端把 310B1 当成 `dav-c220` 编译，应用 `patches/hivmc/0004-*` |
 | `RegisterAscendBinary ret=107000` | 内核对象不满足容器格式（入口符号名/size、`__CCE_KernelArgSize`），见 6.3 |
@@ -344,6 +351,7 @@ python3 scripts/lib/make_screenshot.py docs/logs/verify.log \
 scripts/
   00_env.sh                 路径解析（相对路径）与设备运行封装
   05_capture_a5_templates.sh 从 CANN 抽取 A5 模板 bitcode
+  06_install_toolchain.sh    一键下载安装二进制、检查环境并编译运行 vecadd
   10_build_frontend.sh       编译 bishengir-compile（dev/regbase）
   11_build_hivmc.sh          编译 hivmc（master）
   20_build_vecadd.sh         MLIR → kernel.o，并编译 C 示例
@@ -362,18 +370,20 @@ examples/vecadd/
   abi_reference/             上游 910B ABI shim 参考实现（未在 310B1 验证）
   tools/                     注解补丁脚本与 bisheng 捕获 shim
 docs/
-  01-toolchain-build.md      工具链构建、补丁说明、模板 bitcode 的来源
+  01-toolchain-build.md      二进制部署与源码编译两种操作流程
   02-vecadd-pipeline.md      算子编译流水线与 AscendC 容器格式
   03-llvm-ir-launch.md       LLVM IR 调用方式
+  05-toolchain-internals.md  分支、补丁、模板 bitcode 与构建机制
   images/verify-310b1.png    上板执行截图
   logs/verify.log            上板执行日志
 ```
 
-三份文档的入口：
+文档入口：
 
 * [docs/01-toolchain-build.md](docs/01-toolchain-build.md)
-  —— 为什么前端取 `dev/regbase`、后端取 `master`；各补丁的作用；
-  [模板 bitcode 是什么、为什么要抓](docs/01-toolchain-build.md#3-模板-bitcode-是什么为什么要抓)
+  —— 二进制一键部署与源码编译的操作步骤
+* [docs/05-toolchain-internals.md](docs/05-toolchain-internals.md)
+  —— 分支选择、补丁与构建机制；[模板 bitcode 的来源](docs/05-toolchain-internals.md#3-模板-bitcode-是什么为什么要抓)
 * [docs/02-vecadd-pipeline.md](docs/02-vecadd-pipeline.md)
   —— MLIR → 设备 IR → 注解 → `ccec` → 容器的完整流水线
 * [docs/03-llvm-ir-launch.md](docs/03-llvm-ir-launch.md)
